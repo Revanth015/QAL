@@ -3,6 +3,9 @@ import { supabase } from "../config/supabase";
 export async function signInWithGoogle() {
   return supabase.auth.signInWithOAuth({
     provider: "google",
+    options: {
+      redirectTo: "http://localhost:5173/",
+    },
   });
 }
 

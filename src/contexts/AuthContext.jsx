@@ -8,10 +8,16 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    async function loadSession() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      setSession(session);
       setLoading(false);
-    });
+    }
+
+    loadSession();
 
     const {
       data: { subscription },
@@ -28,6 +34,7 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
+
 export function useAuth() {
   return useContext(AuthContext);
 }
