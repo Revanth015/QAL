@@ -8,12 +8,18 @@ import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MissionDetails from "./pages/MissionDetails";
+import AdminRoute from "./components/AdminRoute";
+import AdminDashboard from "./pages/AdminDashboard";
+
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/missions/:missionId" element={<MissionDetails />} />
+      <Route element={<AdminRoute />}>
+      <Route path="/admin" element={<AdminDashboard />} />
+      </Route>
 
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
