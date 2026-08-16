@@ -1,5 +1,7 @@
 import { readExcelFile } from "./evaluator/fileReader";
 import { analyzeWorkbook } from "./evaluator/evidenceEngine";
+import { understandMission } from "./evaluator/missionUnderstanding";
+import { testMission } from "./testMission";
 
 export async function runExcelTest(file) {
   console.log("=================================");
@@ -19,12 +21,28 @@ export async function runExcelTest(file) {
   console.log("\nAnalyzing workbook...");
 
   const analysis = analyzeWorkbook(workbook);
+  console.log("\nUnderstanding mission...");
+
+const missionUnderstanding = understandMission(
+  testMission,
+  analysis
+);
+
+console.log("\nMISSION UNDERSTANDING");
+console.log(
+  JSON.stringify(
+    missionUnderstanding,
+    null,
+    2
+  )
+);
 
   console.log("\nANALYSIS");
   console.log(JSON.stringify(analysis, null, 2));
 
   return {
-    workbook,
-    analysis,
-  };
+  workbook,
+  analysis,
+  missionUnderstanding,
+};
 }
