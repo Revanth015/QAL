@@ -13,6 +13,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminMissions from "./pages/AdminMissions";
 import CreateMission from "./pages/CreateMission";
 import AdminSubmissions from "./pages/AdminSubmissions";
+import AdminSubmissionDetails from "./pages/AdminSubmissionDetails";
 
 function App() {
   return (
@@ -23,13 +24,17 @@ function App() {
       <Route element={<AdminRoute />}>
   <Route path="/admin" element={<AdminDashboard />} />
   <Route path="/admin/missions" element={<AdminMissions />} />
-  <Route element={<AdminRoute />}>
-  <Route path="/admin" element={<AdminDashboard />} />
-  <Route path="/admin/missions" element={<AdminMissions />} />
   <Route path="/admin/missions/new" element={<CreateMission />} />
-  <Route path="/admin/submissions" element={<AdminSubmissions />} />
+  <Route
+    path="/admin/submissions"
+    element={<AdminSubmissions />}
+  />
+  <Route
+    path="/admin/submissions/:submissionId"
+    element={<AdminSubmissionDetails />}
+  />
 </Route>
-  </Route>
+  
    
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
