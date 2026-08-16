@@ -27,14 +27,15 @@ const numericColumns = columnTypes.filter(
 );
 
     analysis.sheets.push({
-      name: sheet.name,
-      rowCount: Math.max(sheet.rowCount - 1, 0),
-      columnCount: sheet.columnCount,
-      headers,
-      missingCells,
-      duplicateRows,
-      numericColumns,
-    });
+  name: sheet.name,
+  rowCount: Math.max(sheet.rowCount - 1, 0),
+  columnCount: sheet.columnCount,
+  headers,
+  missingCells,
+  duplicateRows,
+  numericColumns,
+  columnTypes,
+});
 
     if (missingCells > 0) {
       analysis.warnings.push(
