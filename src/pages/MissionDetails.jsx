@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { getMissionById } from "../services/missionService";
-import { submitMissionFile } from "../services/submissionService";
+import {
+  submitMissionFile,
+  getMySubmission,
+} from "../services/submissionService";
 
 function MissionDetails() {
   const { missionId } = useParams();
@@ -17,20 +20,23 @@ function MissionDetails() {
   const [submitError, setSubmitError] = useState(null);
 
   useEffect(() => {
-    async function loadMission() {
-      try {
-        const data = await getMissionById(missionId);
-        setMission(data);
-      } catch (err) {
-        console.error("Failed to load mission:", err);
-        setError("Mission not found or no longer available.");
-      } finally {
-        setLoading(false);
-      }
-    }
+  async function loadMission() {
+    try {
+      const data = await getMissionById(missionId);
+      setMission(data);
 
-    loadMission();
-  }, [missionId]);
+      const existingSubmission = await getMySubmission(missionId);
+      setSubmission(existingSubmission);
+    } catch (err) {
+      console.error("Failed to load mission:", err);
+      setError("Mission not found or no longer available.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  loadMission();
+}, [missionId]);
 
   async function handleSubmit() {
   if (!selectedFile) {
