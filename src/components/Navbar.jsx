@@ -1,9 +1,10 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom"; 
 import { useAuth } from "../contexts/AuthContext";
 import { signOut } from "../services/authService";
 
+
 function Navbar() {
-  const { session } = useAuth();
+  const { session, userProfile } = useAuth();
 
   const linkClass = ({ isActive }) =>
     `px-4 py-2 rounded-md transition ${
@@ -29,9 +30,16 @@ function Navbar() {
           Home
         </NavLink>
 
+        {userProfile?.role === "admin" && (
+  <NavLink to="/admin" className={linkClass}>
+    Admin
+  </NavLink>
+)}
+
         <NavLink to="/dashboard" className={linkClass}>
           Dashboard
         </NavLink>
+        
 
         <NavLink to="/missions" className={linkClass}>
           Missions
@@ -57,7 +65,7 @@ function Navbar() {
     Login
   </NavLink>
 )}
-        
+   
       </div>
     </nav>
   );
