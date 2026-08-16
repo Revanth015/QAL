@@ -29,6 +29,36 @@ export async function getActiveMissions() {
   return data ?? [];
 }
 
+export async function getMissions() {
+  const { data, error } = await supabase
+    .from("missions")
+    .select(`
+      id,
+      title,
+      description,
+      difficulty,
+      xp_reward,
+      excel_file,
+      deadline,
+      topic_id,
+      is_active,
+      created_at,
+      topics (
+        id,
+        name,
+        icon,
+        color
+      )
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}
+
 export async function getMissionById(missionId) {
   const { data, error } = await supabase
     .from("missions")
@@ -70,4 +100,20 @@ export async function deleteMission(missionId) {
   }
 
   return true;
+}
+
+export async function getMissionFileUrl(filePath) {
+  if (!filePath) {
+    return null;
+  }
+
+  const { data, error } = await supabase.storage
+    .from("qal-submissions")
+    .createSignedUrl(filePath, 60 * 60);
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.signedUrl || null;
 }

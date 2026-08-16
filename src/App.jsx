@@ -11,6 +11,8 @@ import MissionDetails from "./pages/MissionDetails";
 import AdminRoute from "./components/AdminRoute";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminMissions from "./pages/AdminMissions";
+import CreateMission from "./pages/CreateMission";
+import AdminSubmissions from "./pages/AdminSubmissions";
 
 function App() {
   return (
@@ -21,8 +23,14 @@ function App() {
       <Route element={<AdminRoute />}>
   <Route path="/admin" element={<AdminDashboard />} />
   <Route path="/admin/missions" element={<AdminMissions />} />
+  <Route element={<AdminRoute />}>
+  <Route path="/admin" element={<AdminDashboard />} />
+  <Route path="/admin/missions" element={<AdminMissions />} />
+  <Route path="/admin/missions/new" element={<CreateMission />} />
+  <Route path="/admin/submissions" element={<AdminSubmissions />} />
+</Route>
   </Route>
-
+   
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/missions" element={<Missions />} />

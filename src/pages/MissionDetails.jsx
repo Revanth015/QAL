@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
-import { getMissionById } from "../services/missionService";
+import { getMissionById, getMissionFileUrl } from "../services/missionService";
 import {
   submitMissionFile,
   getMySubmission,
 } from "../services/submissionService";
+
 
 function MissionDetails() {
   const { missionId } = useParams();
@@ -18,15 +19,30 @@ function MissionDetails() {
   const [submitting, setSubmitting] = useState(false);
   const [submission, setSubmission] = useState(null);
   const [submitError, setSubmitError] = useState(null);
+  const [datasetUrl, setDatasetUrl] = useState(null);
+  const [datasetLoading, setDatasetLoading] = useState(false);
 
   useEffect(() => {
   async function loadMission() {
     try {
       const data = await getMissionById(missionId);
-      setMission(data);
+setMission(data);
 
-      const existingSubmission = await getMySubmission(missionId);
-      setSubmission(existingSubmission);
+if (data?.excel_file) {
+  setDatasetLoading(true);
+
+  try {
+    const url = await getMissionFileUrl(data.excel_file);
+    setDatasetUrl(url);
+  } catch (fileError) {
+    console.error("Failed to load mission dataset:", fileError);
+  } finally {
+    setDatasetLoading(false);
+  }
+}
+
+const existingSubmission = await getMySubmission(missionId);
+setSubmission(existingSubmission);
     } catch (err) {
       console.error("Failed to load mission:", err);
       setError("Mission not found or no longer available.");
@@ -151,7 +167,34 @@ function MissionDetails() {
               {mission.description || "No mission description available."}
             </p>
           </div>
+          <div className="mt-8 rounded-lg border border-purple-100 bg-purple-50 p-5">
+  <h2 className="font-bold text-gray-900">
+    📊 Mission Dataset
+  </h2>
 
+  <p className="mt-2 text-sm text-gray-600">
+    Download the Excel dataset required for this mission.
+  </p>
+
+  {datasetLoading ? (
+    <p className="mt-4 text-sm text-gray-500">
+      Preparing dataset...
+    </p>
+  ) : datasetUrl ? (
+    <a
+      href={datasetUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-4 inline-flex rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-700"
+    >
+      Download Dataset
+    </a>
+  ) : (
+    <p className="mt-4 text-sm text-gray-500">
+      No dataset is attached to this mission.
+    </p>
+  )}
+</div>
           <div className="mt-8 rounded-lg bg-gray-50 p-5">
   <h2 className="font-bold text-gray-900">
     Submission
