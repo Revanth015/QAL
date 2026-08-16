@@ -7,12 +7,13 @@ import Missions from "./pages/Missions";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
-
+import MissionDetails from "./pages/MissionDetails";
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/missions/:missionId" element={<MissionDetails />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
