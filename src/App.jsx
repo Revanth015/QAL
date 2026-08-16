@@ -14,6 +14,7 @@ import AdminMissions from "./pages/AdminMissions";
 import CreateMission from "./pages/CreateMission";
 import AdminSubmissions from "./pages/AdminSubmissions";
 import AdminSubmissionDetails from "./pages/AdminSubmissionDetails";
+import IntelligenceTest from "./pages/IntelligenceTest";
 
 function App() {
   return (
@@ -34,7 +35,10 @@ function App() {
     element={<AdminSubmissionDetails />}
   />
 </Route>
-  
+  <Route
+  path="/intelligence-test"
+  element={<IntelligenceTest />}
+/>
    
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
