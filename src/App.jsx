@@ -10,6 +10,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import MissionDetails from "./pages/MissionDetails";
 import AdminRoute from "./components/AdminRoute";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminMissions from "./pages/AdminMissions";
 
 function App() {
   return (
@@ -18,8 +19,9 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/missions/:missionId" element={<MissionDetails />} />
       <Route element={<AdminRoute />}>
-      <Route path="/admin" element={<AdminDashboard />} />
-      </Route>
+  <Route path="/admin" element={<AdminDashboard />} />
+  <Route path="/admin/missions" element={<AdminMissions />} />
+  </Route>
 
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />

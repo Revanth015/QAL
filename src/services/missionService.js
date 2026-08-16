@@ -58,3 +58,16 @@ export async function getMissionById(missionId) {
 
   return data;
 }
+
+export async function deleteMission(missionId) {
+  const { error } = await supabase
+    .from("missions")
+    .delete()
+    .eq("id", missionId);
+
+  if (error) {
+    throw error;
+  }
+
+  return true;
+}
