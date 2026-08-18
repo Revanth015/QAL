@@ -1,47 +1,10 @@
 const KEY = "qal_events_v2";
-
-const defaults = [
-  {
-    id: "season-01",
-    title: "QAL Analytics League — Season 01",
-    theme: "The Turnaround",
-    description: "A stage-based analytics campaign where every completed mission unlocks the next chapter.",
-    status: "active",
-    season: "Season 01",
-    badge: "Season 01 Champion",
-    stages: [
-      { id: 1, title: "The Brief", missionId: null, mission: "Understand the business problem", xp: 100 },
-      { id: 2, title: "The Investigation", missionId: null, mission: "Analyze the evidence and identify the drivers", xp: 150 },
-      { id: 3, title: "The Decision", missionId: null, mission: "Build and defend the recommended solution", xp: 200 },
-      { id: 4, title: "The Boardroom", missionId: null, mission: "Present the final business decision", xp: 300 },
-    ],
-  },
-  { id: "season-02", title: "QAL Data Rescue", theme: "Emergency Analytics", description: "A future multi-stage challenge for data quality, statistics and decision-making.", status: "upcoming", season: "Season 02", badge: "Data Rescue Specialist", stages: [] },
-];
-
-function read() {
-  try {
-    const value = localStorage.getItem(KEY);
-    if (value) return JSON.parse(value);
-    localStorage.setItem(KEY, JSON.stringify(defaults));
-  } catch (error) { console.warn("Event store unavailable:", error); }
-  return JSON.parse(JSON.stringify(defaults));
-}
+const defaults = [{ id: "season-01", title: "QAL Analytics League — Season 01", theme: "The Turnaround", description: "A stage-based analytics campaign where every completed mission unlocks the next chapter.", status: "active", season: "Season 01", badge: "Season 01 Champion", stages: [{ id: 1, title: "The Brief", missionId: null, mission: "Understand the business problem", status: "current", xp: 100 }, { id: 2, title: "The Investigation", missionId: null, mission: "Analyze the evidence and identify the drivers", status: "locked", xp: 150 }, { id: 3, title: "The Decision", missionId: null, mission: "Build and defend the recommended solution", status: "locked", xp: 200 }, { id: 4, title: "The Boardroom", missionId: null, mission: "Present the final business decision", status: "locked", xp: 300 }] }, { id: "season-02", title: "QAL Data Rescue", theme: "Emergency Analytics", description: "A future multi-stage challenge for data quality, statistics and decision-making.", status: "upcoming", season: "Season 02", badge: "Data Rescue Specialist", stages: [] }];
+function read() { try { const value = localStorage.getItem(KEY); if (value) return JSON.parse(value); localStorage.setItem(KEY, JSON.stringify(defaults)); } catch (error) { console.warn("Event store unavailable:", error); } return JSON.parse(JSON.stringify(defaults)); }
 function write(events) { localStorage.setItem(KEY, JSON.stringify(events)); }
 export async function getEvents() { return read(); }
 export async function getEventById(id) { return read().find((event) => event.id === id) || null; }
 export async function getActiveEvent() { return read().find((event) => event.status === "active") || null; }
-export async function saveEvent(event) {
-  const events = read();
-  const index = events.findIndex((item) => item.id === event.id);
-  if (index >= 0) events[index] = event; else events.push({ ...event, id: `season-${Date.now()}` });
-  write(events);
-  return index >= 0 ? event : events[events.length - 1];
-}
-export async function createEvent() {
-  const event = { id: `season-${Date.now()}`, title: "New QAL Season", theme: "New Challenge", description: "Describe this season.", status: "draft", season: "New Season", badge: "Season Champion", stages: [] };
-  const events = [...read(), event];
-  write(events);
-  return event;
-}
+export async function saveEvent(event) { const events = read(); const index = events.findIndex((item) => item.id === event.id); if (index >= 0) events[index] = event; else events.push({ ...event, id: `season-${Date.now()}` }); write(events); return index >= 0 ? event : events[events.length - 1]; }
+export async function createEvent() { const event = { id: `season-${Date.now()}`, title: "New QAL Season", theme: "New Challenge", description: "Describe this season.", status: "draft", season: "New Season", badge: "Season Champion", stages: [] }; const events = [...read(), event]; write(events); return event; }
 export async function deleteEvent(id) { write(read().filter((event) => event.id !== id)); return true; }
