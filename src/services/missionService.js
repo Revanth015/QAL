@@ -138,6 +138,105 @@ export async function updateMission({ missionId, mission, criteria, file }) {
   return getAdminMissionById(missionId);
 }
 
+export async function createMissionFromBlueprint(blueprint) {
+  if (!blueprint?.title) {
+    throw new Error("Generated mission has no title.");
+  }
+
+  const topicName = String(blueprint.topic || "AI Generated").trim();
+
+  let { data: topic, error: topicError } = await supabase
+    .from("topics")
+    .select("id, name, icon, color")
+    .ilike("name", topicName)
+    .maybeSingle();
+
+  if (topicError) throw topicError;
+
+  if (!topic) {
+    const { data: createdTopic, error: createTopicError } = await supabase
+      .from("topics")
+      .insert({
+        name: topicName,
+        icon: "🤖",
+        color: "#7C3AED",
+      })
+      .select("id, name, icon, color")
+      .single();
+
+    if (createTopicError) throw createTopicError;
+    topic = createdTopic;
+  }
+
+  const phaseText = (blueprint.phases || [])
+    .map((phase) => {
+      const action = phase.studentAction ? `\nAction: ${phase.studentAction}` : "";
+      const deliverable = phase.deliverable ? `\nDeliverable: ${phase.deliverable}` : "";
+      return `Phase ${phase.phase}: ${phase.name}\nGoal: ${phase.goal || ""}${action}${deliverable}`;
+    })
+    .join("\n\n");
+
+  const datasetText = (blueprint.datasetPlan || []).length
+    ? `\n\nDataset Plan\n${blueprint.datasetPlan.map((item) => `- ${item}`).join("\n")}`
+    : "";
+
+  const description = [
+    blueprint.hook || blueprint.story || "",
+    blueprint.studentRole ? `Student Role: ${blueprint.studentRole}` : "",
+    blueprint.objective ? `Objective: ${blueprint.objective}` : "",
+    blueprint.stakes ? `Stakes: ${blueprint.stakes}` : "",
+    phaseText ? `\nMission Phases\n${phaseText}` : "",
+    datasetText,
+    blueprint.successCondition ? `\n\nSuccess Condition\n${blueprint.successCondition}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+
+  const { data: mission, error: missionError } = await supabase
+    .from("missions")
+    .insert({
+      title: String(blueprint.title).trim(),
+      topic_id: topic.id,
+      description: description || null,
+      difficulty: blueprint.difficulty || "Medium",
+      xp_reward: Number(blueprint.xpReward || 100),
+      excel_file: null,
+      deadline: null,
+      is_active: false,
+    })
+    .select(missionSelect)
+    .single();
+
+  if (missionError) throw missionError;
+
+  const criteria = (blueprint.scoringCriteria || []).map((criterion) => ({
+    mission_id: mission.id,
+    criterion_name: String(criterion.name || "Criterion").trim(),
+    criterion_description: String(
+      criterion.description || criterion.whatGoodLooksLike || "Evaluate the student's work against this criterion."
+    ).trim(),
+    weight: Number(criterion.weight || 0),
+    max_score: 100,
+    evaluation_instructions: String(
+      criterion.evaluationInstructions || criterion.whatGoodLooksLike || "Use workbook evidence and mission requirements."
+    ).trim(),
+  }));
+
+  if (criteria.length) {
+    const { error: criteriaError } = await supabase
+      .from("mission_scoring_criteria")
+      .insert(criteria);
+
+    if (criteriaError) {
+      await supabase.from("missions").delete().eq("id", mission.id);
+      throw criteriaError;
+    }
+  }
+
+  return getAdminMissionById(mission.id);
+}
+
 export async function deleteMission(missionId) {
   const { error } = await supabase
     .from("missions")
