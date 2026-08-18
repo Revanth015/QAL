@@ -1,0 +1,12 @@
+import { useState } from "react";
+import Layout from "../components/Layout";
+import { createBadgeDraft } from "../services/badgeService";
+
+export default function AdminBadges() {
+  const [form, setForm] = useState({ name: "", icon: "🏅", description: "", rarity: "Rare" });
+  const [created, setCreated] = useState(null);
+  const update = (key, value) => setForm((v) => ({ ...v, [key]: value }));
+  async function create() { setCreated(await createBadgeDraft(form)); }
+  return <Layout><div className="mx-auto max-w-4xl space-y-6"><div><p className="text-sm font-semibold text-purple-600">Admin</p><h1 className="text-3xl font-bold">Badge Creator</h1><p className="mt-2 text-gray-500">Design collector badges for skills, missions and seasons. This prototype keeps the design contract ready for persistent badge tables.</p></div><div className="grid gap-6 md:grid-cols-2"><section className="rounded-xl bg-white p-6 shadow space-y-4"><Input label="Badge name" value={form.name} onChange={(v) => update("name", v)} /><Input label="Icon / emoji" value={form.icon} onChange={(v) => update("icon", v)} /><Input label="Description" value={form.description} onChange={(v) => update("description", v)} /><label className="block text-sm font-medium">Rarity<select value={form.rarity} onChange={(e) => update("rarity", e.target.value)} className="mt-1 w-full rounded-lg border p-2.5"><option>Common</option><option>Rare</option><option>Epic</option><option>Legendary</option></select></label><button onClick={create} className="rounded-lg bg-purple-600 px-5 py-2.5 font-semibold text-white">Create Badge</button></section><section className="rounded-xl bg-gray-950 p-8 text-center text-white"><div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-white/10 text-6xl">{form.icon}</div><h2 className="mt-5 text-2xl font-bold">{form.name || "New Badge"}</h2><p className="mt-2 text-purple-200">{form.rarity}</p><p className="mt-4 text-sm text-gray-300">{form.description || "Your badge description will appear here."}</p>{created && <p className="mt-6 rounded-lg bg-green-500/20 p-3 text-sm text-green-200">✓ Badge draft created: {created.id}</p>}</section></div></div></Layout>;
+}
+function Input({ label, value, onChange }) { return <label className="block text-sm font-medium">{label}<input value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full rounded-lg border p-2.5" /></label>; }
