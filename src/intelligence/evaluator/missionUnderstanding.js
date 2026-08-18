@@ -1,8 +1,8 @@
 const STOP_WORDS = new Set([
-  "the", "a", "an", "and", "or", "to", "of", "for", "in", "on",
-  "with", "from", "by", "is", "are", "be", "this", "that", "using",
-  "your", "their", "identify", "provide", "calculate", "correctly",
-  "clear", "available", "data", "dataset", "analysis", "understanding",
+  "the", "a", "an", "and", "or", "to", "of", "for", "in", "on", "with",
+  "from", "by", "is", "are", "be", "this", "that", "using", "your", "their",
+  "identify", "provide", "calculate", "correctly", "clear", "available", "data",
+  "dataset", "analysis", "understanding",
 ]);
 
 const SHEET_STOP_WORDS = [
@@ -23,15 +23,9 @@ export function understandMission(mission, workbookAnalysis) {
   if (!workbookAnalysis) throw new Error("Workbook analysis is required.");
 
   const criteria = mission.criteria || [];
-  const sheets = (workbookAnalysis.sheets || []).filter(
-    (sheet) => !isMetadataSheet(sheet.name)
-  );
-
+  const sheets = (workbookAnalysis.sheets || []).filter((sheet) => !isMetadataSheet(sheet.name));
   const columns = sheets.flatMap((sheet) =>
-    (sheet.columnTypes || []).map((column) => ({
-      sheet: sheet.name,
-      ...column,
-    }))
+    (sheet.columnTypes || []).map((column) => ({ sheet: sheet.name, ...column }))
   );
 
   const missionText = normalize([
@@ -47,15 +41,21 @@ export function understandMission(mission, workbookAnalysis) {
       criterion.instructions,
     ].filter(Boolean).join(" "));
 
-    const requirements = inferRequirements(criterionText);
-    const relevantColumns = rankRelevantColumns(columns, requirements, criterionText);
+    const isDataUnderstanding = /(understand|structure|quality|dataset|data quality)/.test(criterionText);
+    const needsMissionContext = isDataUnderstanding || /(recommend|recommendation|business insight)/.test(criterionText);
+    const reasoningText = needsMissionContext ? `${criterionText} ${missionText}` : criterionText;
+    const requirements = inferRequirements(reasoningText);
+
+    const relevantColumns = isDataUnderstanding
+      ? columns.map((column) => ({ ...column, relevanceScore: 100, matchedConcepts: ["dataset_structure"] }))
+      : rankRelevantColumns(columns, requirements, reasoningText);
 
     return {
       criterion: criterion.name,
       weight: criterion.weight,
       requirements,
       relevantColumns,
-      requiredCapabilities: detectRequiredCapabilities(criterionText),
+      requiredCapabilities: detectRequiredCapabilities(reasoningText),
     };
   });
 
@@ -93,18 +93,15 @@ function rankRelevantColumns(columns, requirements, text) {
         }
       }
 
-      if (name && meaningfulTokens(text).some((token) => name === token)) {
+      const tokens = meaningfulTokens(text);
+      if (tokens.some((token) => name === token || name.split(" ").includes(token))) {
         score += 5;
       }
 
       if (requirements.semanticTypes.includes(semanticType)) score += 3;
       if (requirements.needsIdentifier && semanticType === "identifier") score += 2;
 
-      return {
-        column,
-        score,
-        matchedConcepts: [...new Set(matchedConcepts)],
-      };
+      return { column, score, matchedConcepts: [...new Set(matchedConcepts)] };
     })
     .filter((item) => item.score >= 4)
     .sort((a, b) => b.score - a.score)
@@ -117,29 +114,21 @@ function rankRelevantColumns(columns, requirements, text) {
 
 function inferRequirements(text) {
   const semanticTypes = [];
-
   for (const [type, concepts] of Object.entries(CONCEPTS)) {
-    if (concepts.some((concept) => text.includes(concept))) {
-      semanticTypes.push(type);
-    }
+    if (concepts.some((concept) => text.includes(concept))) semanticTypes.push(type);
   }
 
   return {
     semanticTypes: [...new Set(semanticTypes)],
-    needsIdentifier: text.includes("id") || text.includes("identifier") || text.includes("record"),
-    needsComparison:
-      text.includes("compare") || text.includes("comparison") || text.includes("highest") || text.includes("lowest") || text.includes("rank"),
-    needsAggregation:
-      text.includes("total") || text.includes("sum") || text.includes("average") || text.includes("mean") || text.includes("calculate"),
-    needsRecommendation:
-      text.includes("recommend") || text.includes("recommendation") || text.includes("business insight"),
+    needsIdentifier: /\bid\b|identifier|record/.test(text),
+    needsComparison: /compare|comparison|highest|lowest|rank/.test(text),
+    needsAggregation: /total|sum|average|mean|calculate/.test(text),
+    needsRecommendation: /recommend|recommendation|business insight/.test(text),
   };
 }
 
 function meaningfulTokens(text) {
-  return text
-    .split(/[^a-z0-9]+/)
-    .filter((token) => token.length > 2 && !STOP_WORDS.has(token));
+  return text.split(/[^a-z0-9]+/).filter((token) => token.length > 2 && !STOP_WORDS.has(token));
 }
 
 function normalize(value) {
