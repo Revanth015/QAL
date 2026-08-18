@@ -14,6 +14,7 @@ import AdminMissions from "./pages/AdminMissions";
 import CreateMission from "./pages/CreateMission";
 import AdminSubmissions from "./pages/AdminSubmissions";
 import AdminSubmissionDetails from "./pages/AdminSubmissionDetails";
+import AdminAIStudio from "./pages/AdminAIStudio";
 import IntelligenceTest from "./pages/IntelligenceTest";
 
 function App() {
@@ -22,24 +23,18 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/missions/:missionId" element={<MissionDetails />} />
+
       <Route element={<AdminRoute />}>
-  <Route path="/admin" element={<AdminDashboard />} />
-  <Route path="/admin/missions" element={<AdminMissions />} />
-  <Route path="/admin/missions/new" element={<CreateMission />} />
-  <Route
-    path="/admin/submissions"
-    element={<AdminSubmissions />}
-  />
-  <Route
-    path="/admin/submissions/:submissionId"
-    element={<AdminSubmissionDetails />}
-  />
-</Route>
-  <Route
-  path="/intelligence-test"
-  element={<IntelligenceTest />}
-/>
-   
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/missions" element={<AdminMissions />} />
+        <Route path="/admin/missions/new" element={<CreateMission />} />
+        <Route path="/admin/submissions" element={<AdminSubmissions />} />
+        <Route path="/admin/submissions/:submissionId" element={<AdminSubmissionDetails />} />
+        <Route path="/admin/ai" element={<AdminAIStudio />} />
+      </Route>
+
+      <Route path="/intelligence-test" element={<IntelligenceTest />} />
+
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/missions" element={<Missions />} />
