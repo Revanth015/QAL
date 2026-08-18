@@ -1,3 +1,18 @@
+import { runStatisticalTestChecks } from "./statisticalTestEngine";
+
+/**
+ * Evidence-first evaluator.
+ *
+ * A criterion is not considered successfully demonstrated merely because a
+ * final number/text exists. QAL checks, in order:
+ *   1. the requested statistical test / method,
+ *   2. the process used to produce it,
+ *   3. the intermediate result of that process, and
+ *   4. the final/derived result.
+ *
+ * This keeps the prototype aligned with the product rule that students are
+ * assessed on analytical work, not only on the final answer.
+ */
 export function evaluateCriteria(mission, workbook, analysis, understanding) {
   const criteria = mission.criteria || [];
 
@@ -36,6 +51,13 @@ function collectEvidence(criterion, workbook, analysis, plan) {
   const evidence = [];
   const capabilities = plan?.requiredCapabilities || [];
   const relevantColumns = plan?.relevantColumns || [];
+  const criterionText = [
+    criterion.name,
+    criterion.description,
+    criterion.evaluation_instructions,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   if (capabilities.includes("data_quality")) {
     const warnings = analysis.warnings || [];
@@ -60,23 +82,126 @@ function collectEvidence(criterion, workbook, analysis, plan) {
     });
   }
 
-  if (capabilities.includes("aggregation") && capabilities.includes("monetary_analysis")) {
+  // Statistical-test evidence is deliberately separate from generic column
+  // evidence. A student must demonstrate the requested test/method, not just
+  // mention a variable.
+  const statistical = runStatisticalTestChecks({
+    criterionText,
+    workbook,
+    relevantColumns,
+  });
+  if (statistical.requestedTests.length || statistical.detectedTests.length) {
+    evidence.push({
+      type: "statistical_test",
+      requestedTests: statistical.requestedTests,
+      detectedTests: statistical.detectedTests,
+      validatedTests: statistical.validatedTests,
+      missingTests: statistical.missingTests,
+      source: "workbook analytical-process inspection",
+    });
+  }
+
+  if (
+    capabilities.includes("aggregation") &&
+    capabilities.includes("monetary_analysis")
+  ) {
     const grouped = aggregateByCategory(workbook, relevantColumns);
     if (grouped) {
       evidence.push({
-        type: "aggregation",
-        operation: "sum monetary measure by categorical dimension",
+        type: "process_result",
+        process: "sum monetary measure by categorical dimension",
         result: grouped,
+        source: "QAL independent calculation",
       });
+
+      const derived = grouped[0];
+      if (derived) {
+        evidence.push({
+          type: "derived_result",
+          operation: "highest grouped total",
+          result: derived,
+          source: "QAL independent derivation",
+        });
+      }
     }
+  }
+
+  // A process trace is useful even when the criterion is not an aggregation.
+  // It records whether the workbook contains formulas or explicit analytical
+  // method/output labels. The raw workbook reader exposes this metadata.
+  const process = inspectProcess(workbook, criterionText);
+  if (process.formulaCount || process.methodMentions.length || process.resultMentions.length) {
+    evidence.push({
+      type: "process",
+      formulaCount: process.formulaCount,
+      methodMentions: process.methodMentions,
+      resultMentions: process.resultMentions,
+      source: "submitted workbook inspection",
+    });
   }
 
   return evidence;
 }
 
+function inspectProcess(workbook, criterionText) {
+  const haystack = criterionText.toLowerCase();
+  const methodMentions = [];
+  const resultMentions = [];
+  const methods = [
+    "mean",
+    "median",
+    "standard deviation",
+    "variance",
+    "correlation",
+    "regression",
+    "t-test",
+    "chi-square",
+    "anova",
+    "z-test",
+    "hypothesis test",
+    "confidence interval",
+    "pivot table",
+    "sum",
+    "average",
+    "count",
+    "ranking",
+  ];
+
+  for (const method of methods) {
+    if (haystack.includes(method)) methodMentions.push(method);
+  }
+
+  const resultWords = [
+    "result",
+    "conclusion",
+    "finding",
+    "recommendation",
+    "highest",
+    "lowest",
+    "significant",
+    "p-value",
+    "p value",
+  ];
+
+  for (const word of resultWords) {
+    if (haystack.includes(word)) resultMentions.push(word);
+  }
+
+  let formulaCount = 0;
+  for (const sheet of workbook.sheets || []) {
+    formulaCount += Number(sheet.formulaCount || 0);
+  }
+
+  return { formulaCount, methodMentions, resultMentions };
+}
+
 function aggregateByCategory(workbook, relevantColumns) {
-  const category = relevantColumns.find((item) => item.semanticType === "categorical");
-  const measure = relevantColumns.find((item) => item.semanticType === "monetary_measure");
+  const category = relevantColumns.find(
+    (item) => item.semanticType === "categorical"
+  );
+  const measure = relevantColumns.find(
+    (item) => item.semanticType === "monetary_measure"
+  );
 
   if (!category || !measure) return null;
 
@@ -102,15 +227,39 @@ function aggregateByCategory(workbook, relevantColumns) {
 }
 
 function scoreCriterion(criterion, evidence) {
-  const text = `${criterion.name || ""} ${criterion.description || ""}`.toLowerCase();
   if (!evidence.length) return 0;
 
-  let score = 40;
-  if (evidence.some((item) => item.type === "column")) score += 20;
-  if (evidence.some((item) => item.type === "aggregation")) score += 25;
-  if (evidence.some((item) => item.type === "data_quality")) score += 15;
+  const statistical = evidence.find((item) => item.type === "statistical_test");
+  const process = evidence.find((item) => item.type === "process");
+  const processResult = evidence.find((item) => item.type === "process_result");
+  const derivedResult = evidence.find((item) => item.type === "derived_result");
 
-  if (text.includes("recommend") && !evidence.some((item) => item.type === "aggregation")) {
+  // Evidence gates: final/derived output cannot receive full credit when the
+  // underlying process or requested statistical method is absent.
+  let score = 20; // relevant evidence exists
+
+  if (statistical) {
+    if (statistical.validatedTests.length) score += 30;
+    else if (statistical.detectedTests.length) score += 15;
+  }
+
+  if (process || processResult) score += 20;
+  if (derivedResult) score += 20;
+
+  if (evidence.some((item) => item.type === "column")) score += 10;
+  if (evidence.some((item) => item.type === "data_quality")) score += 5;
+
+  // Missing requested tests cap the score. This prevents a correct-looking
+  // final answer from receiving a high score when the required statistical
+  // procedure was not demonstrated.
+  if (statistical?.missingTests?.length) score = Math.min(score, 55);
+
+  const text = `${criterion.name || ""} ${criterion.description || ""}`.toLowerCase();
+  if (
+    text.includes("recommend") &&
+    !processResult &&
+    !derivedResult
+  ) {
     score = Math.min(score, 60);
   }
 
@@ -119,8 +268,10 @@ function scoreCriterion(criterion, evidence) {
 
 function calculateConfidence(evidence) {
   if (!evidence.length) return 0;
-  const directEvidence = evidence.filter(
-    (item) => item.type === "column" || item.type === "aggregation"
+
+  const directEvidence = evidence.filter((item) =>
+    ["column", "process", "process_result", "derived_result", "statistical_test"].includes(item.type)
   ).length;
-  return Math.min(1, 0.5 + directEvidence * 0.15);
+
+  return Math.min(1, 0.35 + directEvidence * 0.12);
 }
