@@ -12,6 +12,7 @@ import AdminRoute from "./components/AdminRoute";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminMissions from "./pages/AdminMissions";
 import CreateMission from "./pages/CreateMission";
+import EditMission from "./pages/EditMission";
 import AdminSubmissions from "./pages/AdminSubmissions";
 import AdminSubmissionDetails from "./pages/AdminSubmissionDetails";
 import AdminAIStudio from "./pages/AdminAIStudio";
@@ -28,6 +29,7 @@ function App() {
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/missions" element={<AdminMissions />} />
         <Route path="/admin/missions/new" element={<CreateMission />} />
+        <Route path="/admin/missions/:missionId/edit" element={<EditMission />} />
         <Route path="/admin/submissions" element={<AdminSubmissions />} />
         <Route path="/admin/submissions/:submissionId" element={<AdminSubmissionDetails />} />
         <Route path="/admin/ai" element={<AdminAIStudio />} />
