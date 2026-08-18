@@ -6,7 +6,6 @@ import { evaluateSubmission } from "../intelligence/core/aiOrchestrator";
 
 function AdminSubmissionDetails() {
   const { submissionId } = useParams();
-
   const [submission, setSubmission] = useState(null);
   const [criteria, setCriteria] = useState([]);
   const [fileUrl, setFileUrl] = useState(null);
@@ -21,18 +20,7 @@ function AdminSubmissionDetails() {
       try {
         const { data, error: submissionError } = await supabase
           .from("submissions")
-          .select(`
-            id,
-            user_id,
-            mission_id,
-            submission_file,
-            score,
-            feedback,
-            status,
-            submitted_at,
-            users (full_name, email),
-            missions (id, title, description, difficulty, xp_reward)
-          `)
+          .select(`id, user_id, mission_id, submission_file, score, feedback, status, submitted_at, users (full_name, email), missions (id, title, description, difficulty, xp_reward)`)
           .eq("id", submissionId)
           .single();
 
@@ -41,28 +29,18 @@ function AdminSubmissionDetails() {
 
         if (data?.feedback) {
           try {
-            const parsed = typeof data.feedback === "string"
-              ? JSON.parse(data.feedback)
-              : data.feedback;
-            if (parsed?.evaluation) setEvaluation(parsed.evaluation);
+            const parsed = typeof data.feedback === "string" ? JSON.parse(data.feedback) : data.feedback;
+            if (parsed?.evaluation) setEvaluation({ ...parsed.evaluation, aiReview: parsed.aiReview, analysis: parsed.analysis, understanding: parsed.understanding, aiStatus: parsed.aiStatus, provider: parsed.provider });
           } catch {
-            // Existing plain-text feedback is still displayed below.
+            // Keep legacy plain-text feedback usable.
           }
         }
 
         const { data: criteriaData, error: criteriaError } = await supabase
           .from("mission_scoring_criteria")
-          .select(`
-            id,
-            criterion_name,
-            criterion_description,
-            weight,
-            max_score,
-            evaluation_instructions
-          `)
+          .select("id, criterion_name, criterion_description, weight, max_score, evaluation_instructions")
           .eq("mission_id", data.mission_id)
           .order("id");
-
         if (criteriaError) throw criteriaError;
         setCriteria(criteriaData || []);
 
@@ -70,7 +48,6 @@ function AdminSubmissionDetails() {
           const { data: signedData, error: signedError } = await supabase.storage
             .from("qal-submissions")
             .createSignedUrl(data.submission_file, 60 * 60);
-
           if (signedError) throw signedError;
           setFileUrl(signedData?.signedUrl || null);
         }
@@ -81,13 +58,12 @@ function AdminSubmissionDetails() {
         setLoading(false);
       }
     }
-
     loadSubmission();
   }, [submissionId]);
 
   async function handleEvaluate() {
-    if (!submission?.submission_file || !criteria.length) {
-      setEvaluationError("A submission file and at least one scoring criterion are required.");
+    if (!submission?.submission_file || !criteria.length || !fileUrl) {
+      setEvaluationError("A submission file, signed file URL and at least one scoring criterion are required.");
       return;
     }
 
@@ -97,7 +73,6 @@ function AdminSubmissionDetails() {
     try {
       const response = await fetch(fileUrl);
       if (!response.ok) throw new Error("Unable to download the submitted workbook for evaluation.");
-
       const blob = await response.blob();
       const fileName = submission.submission_file.split("/").pop() || "submission.xlsx";
       const file = new File([blob], fileName, { type: blob.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -118,163 +93,102 @@ function AdminSubmissionDetails() {
       };
 
       const result = await evaluateSubmission({ file, mission });
-      setEvaluation(result.evaluation);
+      const displayEvaluation = {
+        ...result.evaluation,
+        analysis: result.analysis,
+        understanding: result.understanding,
+        aiReview: result.aiReview,
+        aiStatus: result.aiStatus,
+        provider: result.provider,
+        feedback: result.feedback,
+      };
+      setEvaluation(displayEvaluation);
 
       const feedbackPayload = {
         evaluation: result.evaluation,
+        analysis: result.analysis,
+        understanding: result.understanding,
+        aiReview: result.aiReview,
         feedback: result.feedback,
         provider: result.provider,
+        aiStatus: result.aiStatus,
         version: result.version,
         evaluated_at: new Date().toISOString(),
       };
 
-      const { data: updated, error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from("submissions")
         .update({
-          score: result.evaluation.finalScore,
+          score: Math.round(result.evaluation.finalScore),
           feedback: JSON.stringify(feedbackPayload),
           status: "Evaluated",
         })
-        .eq("id", submission.id)
-        .select()
-        .single();
+        .eq("id", submission.id);
 
       if (updateError) throw updateError;
-      setSubmission((current) => ({ ...current, ...updated }));
+      setSubmission((current) => ({
+        ...current,
+        score: Math.round(result.evaluation.finalScore),
+        feedback: JSON.stringify(feedbackPayload),
+        status: "Evaluated",
+      }));
     } catch (err) {
       console.error("AI evaluation failed:", err);
-      setEvaluationError(err.message || "AI evaluation failed.");
+      setEvaluationError(err.message || "QAL evaluation failed.");
     } finally {
       setEvaluating(false);
     }
   }
 
-  if (loading) {
-    return <Layout><div className="flex min-h-[60vh] items-center justify-center"><p className="text-gray-500">Loading submission...</p></div></Layout>;
-  }
+  if (loading) return <Layout><div className="flex min-h-[60vh] items-center justify-center"><p className="text-gray-500">Loading submission...</p></div></Layout>;
+  if (error || !submission) return <Layout><div className="rounded-xl bg-white p-8 text-center shadow"><h1 className="text-2xl font-bold text-gray-900">Submission unavailable</h1><p className="mt-2 text-gray-500">{error || "Submission not found."}</p><Link to="/admin/submissions" className="mt-6 inline-block rounded-lg bg-purple-600 px-5 py-2 text-sm font-semibold text-white">Back to Submissions</Link></div></Layout>;
 
-  if (error || !submission) {
-    return (
-      <Layout>
-        <div className="rounded-xl bg-white p-8 text-center shadow">
-          <h1 className="text-2xl font-bold text-gray-900">Submission unavailable</h1>
-          <p className="mt-2 text-gray-500">{error || "Submission not found."}</p>
-          <Link to="/admin/submissions" className="mt-6 inline-block rounded-lg bg-purple-600 px-5 py-2 text-sm font-semibold text-white">Back to Submissions</Link>
-        </div>
-      </Layout>
-    );
-  }
-
-  const totalWeight = criteria.reduce((total, criterion) => total + Number(criterion.weight || 0), 0);
+  const totalWeight = criteria.reduce((sum, criterion) => sum + Number(criterion.weight || 0), 0);
+  const analysis = evaluation?.analysis;
+  const understanding = evaluation?.understanding;
+  const aiReview = evaluation?.aiReview;
 
   return (
     <Layout>
-      <div className="mx-auto max-w-5xl space-y-6">
-        <Link to="/admin/submissions" className="text-sm font-medium text-purple-600 hover:text-purple-700">← Back to Submissions</Link>
+      <div className="mx-auto max-w-6xl space-y-6">
+        <Link to="/admin/submissions" className="text-sm font-medium text-purple-600">← Back to Submissions</Link>
+        <div><p className="text-sm font-medium text-purple-600">Submission Review</p><h1 className="mt-1 text-3xl font-bold text-gray-900">{submission.missions?.title || "Mission"}</h1><p className="mt-2 text-gray-500">Run the complete QAL Intelligence pipeline against the submitted workbook.</p></div>
 
-        <div>
-          <p className="text-sm font-medium text-purple-600">Submission Review</p>
-          <h1 className="mt-1 text-3xl font-bold text-gray-900">{submission.missions?.title || "Mission"}</h1>
-          <p className="mt-2 text-gray-500">Review the participant's submission and run the QAL Intelligence evaluator.</p>
-        </div>
+        <section className="rounded-xl bg-white p-6 shadow"><h2 className="text-xl font-bold text-gray-900">Student</h2><div className="mt-4 grid gap-4 sm:grid-cols-2"><InfoCard label="Name" value={submission.users?.full_name || "Unknown student"} /><InfoCard label="Email" value={submission.users?.email || "—"} /><InfoCard label="Submitted" value={submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : "—"} /><InfoCard label="Status" value={submission.status || "Pending"} /></div></section>
 
-        <section className="rounded-xl bg-white p-6 shadow">
-          <h2 className="text-xl font-bold text-gray-900">Student</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <InfoCard label="Name" value={submission.users?.full_name || "Unknown student"} />
-            <InfoCard label="Email" value={submission.users?.email || "—"} />
-            <InfoCard label="Submitted" value={submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : "—"} />
-            <InfoCard label="Status" value={submission.status || "Pending"} />
-          </div>
+        <section className="rounded-xl bg-white p-6 shadow"><h2 className="text-xl font-bold text-gray-900">Mission</h2><p className="mt-3 whitespace-pre-line leading-7 text-gray-600">{submission.missions?.description || "No mission description available."}</p><div className="mt-5 grid gap-4 sm:grid-cols-2"><InfoCard label="Difficulty" value={submission.missions?.difficulty || "—"} /><InfoCard label="XP Reward" value={`${submission.missions?.xp_reward ?? 0} XP`} /></div></section>
+
+        <section className="rounded-xl bg-white p-6 shadow"><div className="flex items-center justify-between"><div><h2 className="text-xl font-bold text-gray-900">AI Scoring Matrix</h2><p className="mt-2 text-sm text-gray-500">Criteria supplied to the QAL evaluator.</p></div><span className="rounded-full bg-purple-50 px-4 py-2 text-sm font-semibold text-purple-700">{totalWeight}%</span></div><div className="mt-5 space-y-3">{criteria.map((criterion) => <div key={criterion.id} className="rounded-lg border border-gray-200 p-4"><div className="flex items-center justify-between"><h3 className="font-semibold text-gray-900">{criterion.criterion_name}</h3><span className="font-bold text-purple-600">{criterion.weight}%</span></div><p className="mt-2 text-sm text-gray-600">{criterion.criterion_description || "No description"}</p>{criterion.evaluation_instructions && <p className="mt-2 rounded bg-gray-50 p-3 text-xs text-gray-500"><strong>Evaluation instructions:</strong> {criterion.evaluation_instructions}</p>}</div>)}</div></section>
+
+        <section className="rounded-xl border border-purple-200 bg-purple-50 p-6 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-purple-600">QAL Intelligence Engine</p><h2 className="mt-1 text-2xl font-bold text-gray-900">Workbook → Evidence → Evaluation → AI Review</h2><p className="mt-2 max-w-3xl text-sm text-gray-600">QAL reads the workbook, identifies its structure and data types, maps each criterion to relevant evidence, computes deterministic evidence, then asks the live AI gateway to review the evidence.</p></div><button type="button" onClick={handleEvaluate} disabled={evaluating || !fileUrl || !criteria.length} className="rounded-lg bg-purple-600 px-5 py-3 font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50">{evaluating ? "QAL is working..." : evaluation ? "Run QAL Again" : "Run QAL Intelligence"}</button></div>{evaluationError && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{evaluationError}</p>}
+
+          {evaluation && <div className="mt-6 space-y-6">
+            <div className="grid gap-4 sm:grid-cols-4"><InfoCard label="Final Score" value={`${evaluation.finalScore}/100`} /><InfoCard label="Criteria" value={evaluation.criteria?.length || 0} /><InfoCard label="AI Status" value={evaluation.aiStatus === "live-ai" ? "Live AI" : "Deterministic"} /><InfoCard label="Provider" value={evaluation.provider || "QAL"} /></div>
+
+            <div className="rounded-xl bg-white p-5"><h3 className="font-bold text-gray-900">1. Workbook scan</h3><div className="mt-3 grid gap-3 sm:grid-cols-4"><InfoCard label="Sheets" value={analysis?.totalSheets ?? "—"} /><InfoCard label="Columns" value={understanding?.workbook?.columnsFound ?? "—"} /><InfoCard label="Warnings" value={analysis?.warnings?.length ?? 0} /><InfoCard label="Ignored sheets" value={understanding?.workbook?.ignoredSheets?.join(", ") || "None"} /></div>{analysis?.warnings?.length > 0 && <div className="mt-3 space-y-2">{analysis.warnings.map((warning) => <p key={warning} className="rounded bg-yellow-50 p-2 text-xs text-yellow-700">{warning}</p>)}</div>}</div>
+
+            <div className="rounded-xl bg-white p-5"><h3 className="font-bold text-gray-900">2. Mission understanding</h3><p className="mt-1 text-sm text-gray-500">Criterion-specific column mapping produced by QAL.</p><div className="mt-4 space-y-3">{(understanding?.criterionAnalysis || []).map((item) => <div key={item.criterion} className="rounded-lg border border-gray-200 p-4"><div className="flex items-center justify-between"><span className="font-semibold text-gray-900">{item.criterion}</span><span className="text-xs text-purple-600">{item.weight}%</span></div><div className="mt-2 flex flex-wrap gap-2">{(item.requiredCapabilities || []).map((capability) => <span key={capability} className="rounded-full bg-purple-50 px-2 py-1 text-xs text-purple-700">{capability}</span>)}</div><p className="mt-3 text-sm text-gray-600">Relevant columns: {(item.relevantColumns || []).map((column) => `${column.sheet}.${column.column}`).join(", ") || "None detected"}</p></div>)}</div></div>
+
+            <div className="rounded-xl bg-white p-5"><h3 className="font-bold text-gray-900">3. Evidence and scoring</h3><div className="mt-4 space-y-3">{(evaluation.criteria || []).map((item) => <div key={item.criterion} className="rounded-lg border border-gray-200 p-4"><div className="flex items-center justify-between"><span className="font-semibold text-gray-900">{item.criterion}</span><span className="font-bold text-purple-600">{item.score}/100</span></div><p className="mt-1 text-xs text-gray-500">Confidence: {Math.round((item.confidence || 0) * 100)}% · Evidence items: {item.evidence?.length || 0}</p><div className="mt-3 space-y-2">{(item.evidence || []).map((evidence, index) => <EvidenceCard key={`${item.criterion}-${index}`} evidence={evidence} />)}</div></div>)}</div></div>
+
+            <div className="rounded-xl bg-gray-950 p-5 text-white"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-widest text-purple-300">4. Live AI reviewer</p><h3 className="mt-1 text-xl font-bold">AI interpretation of the evidence</h3></div><span className="text-xs text-gray-400">{aiReview?.model || aiReview?.provider || "Fallback"}</span></div><p className="mt-4 text-sm leading-6 text-gray-300">{aiReview?.overallAssessment || "No live AI review available."}</p>{aiReview?.businessInsight && <div className="mt-4 rounded-lg bg-white/10 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-purple-300">Business insight</p><p className="mt-1 text-sm text-gray-200">{aiReview.businessInsight}</p></div>}<div className="mt-4 grid gap-4 sm:grid-cols-2"><div><p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Strengths</p><ul className="mt-2 space-y-1 text-sm text-gray-300">{(aiReview?.strengths || []).map((item) => <li key={item}>• {item}</li>)}</ul></div><div><p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Improvements</p><ul className="mt-2 space-y-1 text-sm text-gray-300">{(aiReview?.improvements || []).map((item) => <li key={item}>• {item}</li>)}</ul></div></div></div>
+          </div>}
         </section>
 
-        <section className="rounded-xl bg-white p-6 shadow">
-          <h2 className="text-xl font-bold text-gray-900">Mission</h2>
-          <p className="mt-3 whitespace-pre-line leading-7 text-gray-600">{submission.missions?.description || "No mission description available."}</p>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <InfoCard label="Difficulty" value={submission.missions?.difficulty || "—"} />
-            <InfoCard label="XP Reward" value={`${submission.missions?.xp_reward ?? 0} XP`} />
-          </div>
-        </section>
-
-        <section className="rounded-xl bg-white p-6 shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">AI Scoring Matrix</h2>
-              <p className="mt-2 text-sm text-gray-500">Criteria used by the QAL evaluation engine.</p>
-            </div>
-            <span className="rounded-full bg-purple-50 px-4 py-2 text-sm font-semibold text-purple-700">{totalWeight}%</span>
-          </div>
-
-          {criteria.length === 0 ? (
-            <div className="mt-5 rounded-lg bg-yellow-50 p-4 text-sm text-yellow-700">No scoring criteria have been configured for this mission.</div>
-          ) : (
-            <div className="mt-5 space-y-4">
-              {criteria.map((criterion) => (
-                <div key={criterion.id} className="rounded-lg border border-gray-200 p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{criterion.criterion_name}</h3>
-                      {criterion.criterion_description && <p className="mt-2 text-sm leading-6 text-gray-600">{criterion.criterion_description}</p>}
-                    </div>
-                    <span className="shrink-0 rounded-full bg-gray-100 px-3 py-1 text-sm font-bold text-gray-700">{criterion.weight}%</span>
-                  </div>
-                  {criterion.evaluation_instructions && <div className="mt-4 rounded-lg bg-gray-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Evaluation Instructions</p><p className="mt-2 text-sm leading-6 text-gray-600">{criterion.evaluation_instructions}</p></div>}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-xl bg-white p-6 shadow">
-          <h2 className="text-xl font-bold text-gray-900">Submitted File</h2>
-          <p className="mt-2 text-sm text-gray-500">Download the participant's submitted Excel file.</p>
-          {fileUrl ? <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-purple-700">Download Submission</a> : <p className="mt-5 text-sm text-gray-500">Submission file unavailable.</p>}
-        </section>
-
-        <section className="rounded-xl border border-purple-100 bg-purple-50 p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">QAL Intelligence Evaluation</h2>
-              <p className="mt-2 text-sm text-gray-600">Reads the workbook, understands the mission, extracts evidence, scores each criterion and generates feedback.</p>
-            </div>
-            <button type="button" onClick={handleEvaluate} disabled={evaluating || !fileUrl || !criteria.length} className="rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50">
-              {evaluating ? "Evaluating..." : evaluation ? "Run Evaluation Again" : "Run AI Evaluation"}
-            </button>
-          </div>
-
-          {evaluationError && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{evaluationError}</p>}
-
-          {evaluation && (
-            <div className="mt-6 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <InfoCard label="Final Score" value={`${evaluation.finalScore}/100`} />
-                <InfoCard label="Criteria" value={evaluation.criteria?.length || 0} />
-                <InfoCard label="Status" value="Evaluated" />
-              </div>
-
-              <div className="space-y-3">
-                {(evaluation.criteria || []).map((item) => (
-                  <div key={item.criterion} className="rounded-lg bg-white p-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="font-semibold text-gray-900">{item.criterion}</span>
-                      <span className="font-bold text-purple-600">{item.score}/100</span>
-                    </div>
-                    <p className="mt-2 text-xs text-gray-500">Confidence: {Math.round((item.confidence || 0) * 100)}%</p>
-                    {item.evidence?.length > 0 && <p className="mt-2 text-sm text-gray-600">Evidence detected: {item.evidence.length}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
+        <section className="rounded-xl bg-white p-6 shadow"><h2 className="text-xl font-bold text-gray-900">Submitted File</h2><p className="mt-2 text-sm text-gray-500">Download the participant's submitted Excel file.</p>{fileUrl ? <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white">Download Submission</a> : <p className="mt-5 text-sm text-gray-500">Submission file unavailable.</p>}</section>
       </div>
     </Layout>
   );
 }
 
-function InfoCard({ label, value }) {
-  return <div className="rounded-lg border border-gray-100 p-4"><p className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</p><p className="mt-1 font-semibold text-gray-800">{value}</p></div>;
+function InfoCard({ label, value }) { return <div className="rounded-lg border border-gray-100 p-4"><p className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</p><p className="mt-1 font-semibold text-gray-800">{value}</p></div>; }
+
+function EvidenceCard({ evidence }) {
+  if (evidence.type === "aggregation") {
+    return <div className="rounded-lg bg-green-50 p-3"><p className="text-xs font-semibold text-green-700">Aggregation</p><p className="mt-1 text-xs text-gray-600">{evidence.operation}</p><div className="mt-2 grid gap-1 sm:grid-cols-2">{(evidence.result || []).map((row) => <div key={row.group} className="flex justify-between rounded bg-white px-2 py-1 text-xs"><span>{row.group}</span><strong>{row.total}</strong></div>)}</div></div>;
+  }
+  if (evidence.type === "column") return <div className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600"><strong>{evidence.sheet}.{evidence.column}</strong> · {evidence.semanticType} · relevance {evidence.relevanceScore ?? "—"}</div>;
+  return <div className="rounded-lg bg-yellow-50 p-3 text-xs text-yellow-700"><strong>{evidence.type}</strong> · {Array.isArray(evidence.value) ? evidence.value.join("; ") : String(evidence.value)}</div>;
 }
 
 export default AdminSubmissionDetails;
