@@ -22,28 +22,32 @@ function AdminDashboard() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <Link to="/admin/missions" className="rounded-xl bg-white p-6 shadow transition hover:shadow-md">
-            <h2 className="text-lg font-bold text-gray-900">Mission Management</h2>
-            <p className="mt-2 text-sm text-gray-500">Create, edit, deactivate, and manage QAL missions.</p>
-          </Link>
-
-          <Link to="/admin/submissions" className="rounded-xl bg-white p-6 shadow transition hover:shadow-md">
-            <h2 className="text-lg font-bold text-gray-900">Submission Evaluation</h2>
-            <p className="mt-2 text-sm text-gray-500">Review student submissions and AI evaluation results.</p>
-          </Link>
-
-          <Link to="/admin/ai" className="rounded-xl bg-white p-6 shadow transition hover:shadow-md">
-            <h2 className="text-lg font-bold text-gray-900">AI Mission Studio</h2>
-            <p className="mt-2 text-sm text-gray-500">Generate story-driven mission blueprints and future AI workflows.</p>
-          </Link>
+          <AdminCard to="/admin/missions" title="Mission Management" description="Create, edit, deactivate, and manage QAL missions." />
+          <AdminCard to="/admin/submissions" title="Submission Evaluation" description="Review student submissions and run the QAL Intelligence evaluator." />
+          <AdminCard to="/admin/ai" title="AI Mission Studio" description="Generate a story-driven mission prototype from a topic, skill and difficulty." />
         </div>
       </div>
     </Layout>
   );
 }
 
+function AdminCard({ to, title, description }) {
+  return (
+    <Link to={to} className="rounded-xl bg-white p-6 shadow transition hover:-translate-y-0.5 hover:shadow-md">
+      <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+      <p className="mt-2 text-sm text-gray-500">{description}</p>
+      <p className="mt-5 text-sm font-semibold text-purple-600">Open →</p>
+    </Link>
+  );
+}
+
 function StatCard({ title, value }) {
-  return <div className="rounded-xl bg-white p-6 shadow"><p className="text-sm text-gray-500">{title}</p><p className="mt-2 text-3xl font-bold text-gray-900">{value}</p></div>;
+  return (
+    <div className="rounded-xl bg-white p-6 shadow">
+      <p className="text-sm text-gray-500">{title}</p>
+      <p className="mt-2 text-3xl font-bold text-gray-900">{value}</p>
+    </div>
+  );
 }
 
 export default AdminDashboard;
