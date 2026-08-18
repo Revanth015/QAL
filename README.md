@@ -162,6 +162,34 @@ The next intelligence milestone is **criterion-specific reasoning**, not simply 
 
 ---
 
+# Excel Submission & Evaluation Contract
+
+QAL now has a reusable help document for mission designers and students:
+
+**`docs/QAL_EXCEL_SUBMISSION_GUIDE.md`**
+
+The guide can be consulted when a mission needs a clearer Excel contract. It defines recommended sheet naming (`01_Data`, `02_Analysis`, `03_Results`, `04_Conclusion`), how statistical tests should be represented, how to show the analytical process, how process results differ from derived conclusions, formula/process transparency, evidence hierarchy, and how mission-specific templates override the generic recommendations.
+
+The important principle is:
+
+```text
+Data
+ ↓
+Method / Statistical Test
+ ↓
+Actual Process
+ ↓
+Process Result
+ ↓
+Derived Result / Conclusion
+ ↓
+Business Interpretation
+```
+
+This guide is a recommendation and evaluation aid, not a rigid universal template. Mission-specific instructions and scoring criteria remain authoritative.
+
+---
+
 # Intelligence Test / Ground Truth
 
 A controlled workbook named `QAL_Intelligence_Test.xlsx` was created for repeatable testing. It contains `Sales_Data` and `Instructions` sheets.
@@ -266,6 +294,30 @@ feedback
 The evaluator should determine what the student was asked to do, which workbook evidence is relevant, what the student actually did, whether the result is correct, what evidence supports the score, confidence in the decision, and how the student can improve.
 
 It must not reduce evaluation to simplistic rules such as `column exists = marks`.
+
+---
+
+# Evaluation Evidence Philosophy
+
+QAL should evaluate analytical work in stages rather than rewarding only a final answer.
+
+```text
+Required statistical test / analytical method
+                 ↓
+Actual analytical process
+                 ↓
+Process result
+                 ↓
+Derived result / conclusion
+                 ↓
+Business interpretation
+```
+
+A correct final answer without supporting work should not automatically receive full marks. At the same time, students should not be penalised merely for using different sheet names when the mission did not prescribe them and the evidence is clear.
+
+The evaluator should prefer reproducible formulas/statistical output, clearly labelled intermediate results, independently verifiable final results, and supported conclusions over unsupported answer-only cells.
+
+See `docs/QAL_EXCEL_SUBMISSION_GUIDE.md` for the detailed workbook contract and examples.
 
 ---
 
@@ -445,6 +497,7 @@ These future schemas should be designed when implemented; they are not assumed t
 10. Preserve human/admin corrections as learning signals.
 11. Do not represent planned components as implemented.
 12. Keep the architecture extensible so a real LLM can later replace or augment the reasoning layer.
+13. Use `docs/QAL_EXCEL_SUBMISSION_GUIDE.md` as the reusable workbook/evaluation contract when a mission needs explicit Excel structure guidance.
 
 ---
 
@@ -545,3 +598,13 @@ Create
 ```
 
 The final objective is a QAL intelligence system that can understand what a mission is trying to teach, understand what a student actually submitted, evaluate the work fairly with evidence, learn from corrections, and create engaging new challenges.
+
+---
+
+# Excel Submission Help Document
+
+Detailed reusable guidance is maintained in:
+
+`docs/QAL_EXCEL_SUBMISSION_GUIDE.md`
+
+Use this document when creating a mission template, writing student instructions, defining expected statistical-test/process evidence, or designing future machine-readable Excel contracts.
