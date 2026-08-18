@@ -4,50 +4,8 @@ import { useAuth } from "../contexts/AuthContext";
 
 function AdminDashboard() {
   const { userProfile } = useAuth();
-
-  return (
-    <Layout>
-      <div className="mx-auto max-w-7xl space-y-8">
-        <div>
-          <p className="text-sm font-medium text-purple-600">QAL Administration</p>
-          <h1 className="mt-1 text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="mt-2 text-gray-500">Welcome, {userProfile?.full_name || "Administrator"}.</p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="Students" value="—" />
-          <StatCard title="Active Missions" value="—" />
-          <StatCard title="Submissions" value="—" />
-          <StatCard title="Pending Evaluation" value="—" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <AdminCard to="/admin/missions" title="Mission Management" description="Create, edit, deactivate, and manage QAL missions." />
-          <AdminCard to="/admin/submissions" title="Submission Evaluation" description="Review student submissions and run the QAL Intelligence evaluator." />
-          <AdminCard to="/admin/ai" title="AI Mission Studio" description="Generate a story-driven mission prototype from a topic, skill and difficulty." />
-        </div>
-      </div>
-    </Layout>
-  );
+  return <Layout><div className="mx-auto max-w-7xl space-y-8"><div><p className="text-sm font-medium text-purple-600">QAL Administration</p><h1 className="mt-1 text-3xl font-bold text-gray-900">Admin Dashboard</h1><p className="mt-2 text-gray-500">Welcome, {userProfile?.full_name || "Administrator"}. Manage the learning platform, seasons, AI and product delivery.</p></div><div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4"><StatCard title="Students" value="—"/><StatCard title="Active Missions" value="—"/><StatCard title="Submissions" value="—"/><StatCard title="Pending Evaluation" value="—"/></div><div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"><AdminCard to="/admin/missions" title="Mission Management" description="Create, edit, deactivate and manage QAL missions."/><AdminCard to="/admin/submissions" title="Submission Evaluation" description="Review student submissions and run QAL Intelligence."/><AdminCard to="/admin/ai" title="AI Mission Studio" description="Generate story-driven missions and Excel-generation prompts."/><AdminCard to="/admin/badges" title="Badge Creator" description="Design collector badges for skills, missions and seasons."/><AdminCard to="/events" title="Season Events" description="Preview staged competitions and unlock progression."/><AdminCard to="/admin/agile" title="Agile Project Workspace" description="Give management a simple view of the product work currently underway."/></div></div></Layout>;
 }
-
-function AdminCard({ to, title, description }) {
-  return (
-    <Link to={to} className="rounded-xl bg-white p-6 shadow transition hover:-translate-y-0.5 hover:shadow-md">
-      <h2 className="text-lg font-bold text-gray-900">{title}</h2>
-      <p className="mt-2 text-sm text-gray-500">{description}</p>
-      <p className="mt-5 text-sm font-semibold text-purple-600">Open →</p>
-    </Link>
-  );
-}
-
-function StatCard({ title, value }) {
-  return (
-    <div className="rounded-xl bg-white p-6 shadow">
-      <p className="text-sm text-gray-500">{title}</p>
-      <p className="mt-2 text-3xl font-bold text-gray-900">{value}</p>
-    </div>
-  );
-}
-
+function AdminCard({ to, title, description }) { return <Link to={to} className="rounded-xl bg-white p-6 shadow transition hover:-translate-y-0.5 hover:shadow-md"><h2 className="text-lg font-bold text-gray-900">{title}</h2><p className="mt-2 text-sm text-gray-500">{description}</p><p className="mt-5 text-sm font-semibold text-purple-600">Open →</p></Link>; }
+function StatCard({ title, value }) { return <div className="rounded-xl bg-white p-6 shadow"><p className="text-sm text-gray-500">{title}</p><p className="mt-2 text-3xl font-bold text-gray-900">{value}</p></div>; }
 export default AdminDashboard;
