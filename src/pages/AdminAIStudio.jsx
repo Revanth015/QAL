@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Layout from "../components/Layout";
 import { generateMissionWithQAL } from "../services/intelligenceService";
+import { createMissionFromBlueprint } from "../services/missionService";
 
 const stages = [
   ["brief", "Understand brief"],
@@ -19,8 +20,11 @@ function AdminAIStudio() {
   });
   const [blueprint, setBlueprint] = useState(null);
   const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedMission, setSavedMission] = useState(null);
   const [activeStage, setActiveStage] = useState(null);
   const [error, setError] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
 
   function update(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -29,6 +33,8 @@ function AdminAIStudio() {
   async function generate() {
     setGenerating(true);
     setBlueprint(null);
+    setSavedMission(null);
+    setSaveMessage("");
     setError("");
 
     for (const [key] of stages) {
@@ -37,12 +43,33 @@ function AdminAIStudio() {
     }
 
     try {
-      setBlueprint(await generateMissionWithQAL(form));
+      const generated = await generateMissionWithQAL(form);
+      setBlueprint(generated);
       setActiveStage("done");
     } catch (err) {
       setError(err.message || "Unable to generate mission.");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function saveAsDraft() {
+    if (!blueprint) return;
+
+    setSaving(true);
+    setSaveMessage("");
+    setError("");
+
+    try {
+      const mission = await createMissionFromBlueprint(blueprint);
+      setSavedMission(mission);
+      setSaveMessage(
+        `Mission #${mission.id} saved as a draft. Review it in Mission Management, attach the dataset, then publish it when ready.`
+      );
+    } catch (err) {
+      setError(err.message || "Unable to save generated mission.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -53,7 +80,7 @@ function AdminAIStudio() {
           <p className="text-sm font-semibold text-purple-600">QAL Intelligence</p>
           <h1 className="mt-1 text-3xl font-bold text-gray-900">AI Mission Studio</h1>
           <p className="mt-2 max-w-3xl text-gray-500">
-            Give QAL a learning goal and a theme. The AI converts it into a story-driven student mission, phases, deliverables and an evaluation plan.
+            Give QAL a learning goal and a theme. QAL generates a story-driven challenge, phases, deliverables and an evaluation plan that can be saved as a draft mission.
           </p>
         </div>
 
@@ -69,7 +96,7 @@ function AdminAIStudio() {
               <Field label="Story theme" value={form.theme} onChange={(value) => update("theme", value)} />
               <label className="block text-sm font-medium text-gray-700">Difficulty<select value={form.difficulty} onChange={(e) => update("difficulty", e.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 p-2.5"><option>Easy</option><option>Medium</option><option>Hard</option></select></label>
               <Field label="Duration (minutes)" type="number" value={form.durationMinutes} onChange={(value) => update("durationMinutes", Number(value))} />
-              <button disabled={generating} onClick={generate} className="w-full rounded-lg bg-purple-600 px-5 py-3 font-semibold text-white hover:bg-purple-700 disabled:opacity-50">{generating ? "QAL is generating..." : "Generate with QAL AI"}</button>
+              <button disabled={generating || saving} onClick={generate} className="w-full rounded-lg bg-purple-600 px-5 py-3 font-semibold text-white hover:bg-purple-700 disabled:opacity-50">{generating ? "QAL is generating..." : "Generate with QAL AI"}</button>
             </div>
             {error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</p>}
           </section>
@@ -87,7 +114,7 @@ function AdminAIStudio() {
             </div>
 
             {!blueprint ? (
-              <div className="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center shadow-sm"><div className="text-4xl">🤖</div><h2 className="mt-3 text-xl font-bold text-gray-900">No mission generated yet</h2><p className="mt-2 text-sm text-gray-500">Run the generator to see the AI's actual mission output.</p></div>
+              <div className="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center shadow-sm"><div className="text-4xl">🤖</div><h2 className="mt-3 text-xl font-bold text-gray-900">No mission generated yet</h2><p className="mt-2 text-sm text-gray-500">Run the generator to see QAL's actual mission output.</p></div>
             ) : (
               <div className="space-y-6">
                 <section className="rounded-xl bg-white p-6 shadow"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-wide text-purple-600">Generated mission</p><h2 className="mt-1 text-2xl font-bold text-gray-900">{blueprint.title}</h2></div><span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">{blueprint.generatedBy}</span></div><p className="mt-4 text-gray-700">{blueprint.hook || blueprint.story}</p><div className="mt-5 grid gap-4 sm:grid-cols-3"><Info label="Student Role" value={blueprint.studentRole || "Decision maker"} /><Info label="Objective" value={blueprint.objective || "Complete the challenge"} /><Info label="Stakes" value={blueprint.stakes || "Deliver a defensible decision"} /></div></section>
@@ -97,6 +124,20 @@ function AdminAIStudio() {
                 <div className="grid gap-6 lg:grid-cols-2"><section className="rounded-xl bg-white p-6 shadow"><h2 className="text-xl font-bold text-gray-900">Dataset plan</h2><ul className="mt-4 space-y-2">{(blueprint.datasetPlan || []).map((item, index) => <li key={index} className="rounded-lg bg-gray-50 p-3 text-sm text-gray-700">{item}</li>)}</ul></section><section className="rounded-xl bg-white p-6 shadow"><h2 className="text-xl font-bold text-gray-900">AI scoring design</h2><div className="mt-4 space-y-3">{(blueprint.scoringCriteria || []).map((item) => <div key={item.name} className="flex items-start justify-between gap-3 rounded-lg border border-gray-200 p-3"><div><p className="font-semibold text-gray-900">{item.name}</p>{item.whatGoodLooksLike && <p className="mt-1 text-xs text-gray-500">{item.whatGoodLooksLike}</p>}</div><span className="shrink-0 font-bold text-purple-600">{item.weight}%</span></div>)}</div></section></div>
 
                 <section className="rounded-xl border border-purple-100 bg-purple-50 p-6"><h2 className="text-xl font-bold text-gray-900">What QAL generated</h2><p className="mt-2 text-sm text-gray-600">{blueprint.successCondition || "A coherent student challenge with measurable outputs."}</p></section>
+
+                <section className="rounded-xl border border-green-100 bg-green-50 p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-green-700">Mission lifecycle</p>
+                      <h2 className="mt-1 text-xl font-bold text-gray-900">Keep this generated mission</h2>
+                      <p className="mt-2 text-sm text-gray-600">Save it as a draft first. Then use Mission Management to attach the Excel dataset, edit the story or criteria, and publish it when it is ready.</p>
+                    </div>
+                    <button type="button" disabled={saving || savedMission} onClick={saveAsDraft} className="shrink-0 rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50">
+                      {saving ? "Saving..." : savedMission ? `Saved as Draft #${savedMission.id}` : "Save as Draft Mission"}
+                    </button>
+                  </div>
+                  {saveMessage && <p className="mt-4 rounded-lg bg-white p-3 text-sm font-medium text-green-700">✓ {saveMessage}</p>}
+                </section>
               </div>
             )}
           </section>
