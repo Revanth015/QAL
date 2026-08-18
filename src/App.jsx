@@ -1,11 +1,13 @@
 import { Routes, Route } from "react-router-dom";
-
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Missions from "./pages/Missions";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
+import Events from "./pages/Events";
+import Badges from "./pages/Badges";
+import AgileProject from "./pages/AgileProject";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MissionDetails from "./pages/MissionDetails";
 import AdminRoute from "./components/AdminRoute";
@@ -16,6 +18,7 @@ import EditMission from "./pages/EditMission";
 import AdminSubmissions from "./pages/AdminSubmissions";
 import AdminSubmissionDetails from "./pages/AdminSubmissionDetails";
 import AdminAIStudio from "./pages/AdminAIStudio";
+import AdminBadges from "./pages/AdminBadges";
 import IntelligenceTest from "./pages/IntelligenceTest";
 
 function App() {
@@ -24,7 +27,7 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/missions/:missionId" element={<MissionDetails />} />
-
+      <Route path="/intelligence-test" element={<IntelligenceTest />} />
       <Route element={<AdminRoute />}>
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/missions" element={<AdminMissions />} />
@@ -33,13 +36,14 @@ function App() {
         <Route path="/admin/submissions" element={<AdminSubmissions />} />
         <Route path="/admin/submissions/:submissionId" element={<AdminSubmissionDetails />} />
         <Route path="/admin/ai" element={<AdminAIStudio />} />
+        <Route path="/admin/badges" element={<AdminBadges />} />
+        <Route path="/admin/agile" element={<AgileProject />} />
       </Route>
-
-      <Route path="/intelligence-test" element={<IntelligenceTest />} />
-
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/missions" element={<Missions />} />
+        <Route path="/events" element={<Events />} />
+        <Route path="/badges" element={<Badges />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
