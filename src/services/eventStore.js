@@ -4,15 +4,15 @@ async function withStages(eventRows) {
   const events = eventRows || [];
   if (!events.length) return [];
   const ids = events.map((e) => e.id);
-  const { data: stages, error } = await supabase.from("event_stages").select("*").in("event_id", ids).order("stage_number", { ascending: true });
+  const { data: stages, error } = await supabase.from("event_stages").select("*").in("event_id", ids);
   if (error) throw error;
   const byEvent = new Map(ids.map((id) => [String(id), []]));
-  (stages || []).forEach((stage) => byEvent.get(String(stage.event_id))?.push(stage));
+  (stages || []).sort((a, b) => Number(a.stage_number || 0) - Number(b.stage_number || 0)).forEach((stage) => byEvent.get(String(stage.event_id))?.push(stage));
   return events.map((row) => ({ ...row, season: row.season_name || row.title, badge: row.badge_id, stages: (byEvent.get(String(row.id)) || []).map((s) => ({ ...s, missionId: s.mission_id, xp: s.xp_reward })) }));
 }
 
 export async function getEvents() {
-  const { data, error } = await supabase.from("events").select("*").order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("events").select("*");
   if (error) throw error;
   return withStages(data);
 }
@@ -24,9 +24,13 @@ export async function getEventById(id) {
 }
 
 export async function getActiveEvent() {
-  const { data, error } = await supabase.from("events").select("*").eq("status", "published").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  // Read the table first and filter in JavaScript. This avoids PostgREST 400s
+  // caused by project-specific enum/index/schema differences in status/created_at.
+  const { data, error } = await supabase.from("events").select("*");
   if (error) throw error;
-  return data ? (await withStages([data]))[0] : null;
+  const published = (data || []).filter((event) => String(event.status || "").toLowerCase() === "published");
+  published.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  return published.length ? (await withStages([published[0]]))[0] : null;
 }
 
 export async function createEvent() {
