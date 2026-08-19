@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
-import { createAgileProject, createAgileTask, deleteAgileTask, getAgileProjects, updateAgileProject, updateAgileTask } from "../services/agileService";
+import { createAgileProject, createAgileTask, deleteAgileTask, getAgileProjects, updateAgileTask } from "../services/agileService";
 
 const columns = ["backlog", "in_progress", "review", "done"];
 const labels = { backlog: "Backlog", in_progress: "In Progress", review: "Review", done: "Done" };
+
+const demoTasks = [
+  ["Mission & Excel Contract", "done"],
+  ["QAL Intelligence Evaluator", "in_progress"],
+  ["AI Mission Studio", "in_progress"],
+  ["Admin Score Publishing", "review"],
+  ["Season & Event Progression", "backlog"],
+  ["Collector Badge System", "done"]
+];
 
 export default function AgileProject() {
   const [projects, setProjects] = useState([]);
@@ -15,7 +24,12 @@ export default function AgileProject() {
   async function refresh(selectId) {
     try {
       setError("");
-      const data = await getAgileProjects();
+      let data = await getAgileProjects();
+      if (!data.length) {
+        const project = await createAgileProject({ name: "QAL Product Development", description: "Live management view of the QAL learning, AI evaluation and gamification product.", status: "active" });
+        for (const [title, status] of demoTasks) await createAgileTask({ project_id: project.id, title, status, priority: status === "in_progress" ? "high" : "medium" });
+        data = await getAgileProjects();
+      }
       setProjects(data);
       setSelected(data.find((p) => p.id === (selectId ?? selected?.id)) || data[0] || null);
     } catch (e) { setError(e.message || "Unable to load Agile workspace."); }
@@ -29,12 +43,10 @@ export default function AgileProject() {
   }
   async function addTask() {
     if (!selected || !newTask.trim()) return;
-    try { await createAgileTask({ project_id: selected.id, title: newTask.trim() }); setNewTask(""); await refresh(selected.id); }
-    catch (e) { setError(e.message); }
+    try { await createAgileTask({ project_id: selected.id, title: newTask.trim() }); setNewTask(""); await refresh(selected.id); } catch (e) { setError(e.message); }
   }
   async function moveTask(task, status) {
-    try { await updateAgileTask(task.id, { status }); await refresh(selected.id); }
-    catch (e) { setError(e.message); }
+    try { await updateAgileTask(task.id, { status }); await refresh(selected.id); } catch (e) { setError(e.message); }
   }
   async function removeTask(id) {
     if (!window.confirm("Delete this Agile task?")) return;
@@ -48,7 +60,7 @@ export default function AgileProject() {
   const progress = total ? Math.round((done / total) * 100) : 0;
 
   return <Layout><div className="mx-auto max-w-7xl space-y-6">
-    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-purple-600">Management View</p><h1 className="mt-1 text-3xl font-bold">QAL Agile Project Workspace</h1><p className="mt-2 max-w-3xl text-gray-500">A live simplified Agile board for management to see delivery progress, ownership and work moving from backlog to completion.</p></div><button onClick={addProject} className="rounded-lg bg-purple-600 px-4 py-2.5 font-semibold text-white">+ New Workstream</button></div>
+    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-purple-600">Management View</p><h1 className="mt-1 text-3xl font-bold">QAL Agile Project Workspace</h1><p className="mt-2 max-w-3xl text-gray-500">A live simplified Agile board for management to see delivery progress and how the product is moving from backlog to completion.</p></div><button onClick={addProject} className="rounded-lg bg-purple-600 px-4 py-2.5 font-semibold text-white">+ New Workstream</button></div>
     {error && <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{error}</div>}
     {loading ? <div className="rounded-xl bg-white p-8 shadow text-gray-500">Loading Agile workspace...</div> : <>
       <section className="grid gap-4 sm:grid-cols-4"><Metric title="Workstreams" value={projects.length} detail="Live Supabase projects"/><Metric title="Tasks" value={total} detail="Current work items"/><Metric title="Completed" value={done} detail="Moved to Done"/><Metric title="Delivery" value={`${progress}%`} detail="Completion rate"/></section>
