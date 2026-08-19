@@ -1,34 +1,39 @@
-const KEY = "qal_badge_catalog_v2";
+import { supabase } from "../config/supabase";
 
-const defaults = [
-  { id: "first-mission", name: "First Mission", icon: "🚀", image_url: null, description: "Complete your first QAL mission.", rarity: "Common" },
-  { id: "statistician", name: "Statistical Sleuth", icon: "📊", image_url: null, description: "Demonstrate a correct statistical process and interpretation.", rarity: "Rare" },
-  { id: "season-01", name: "Season 01 Champion", icon: "🏆", image_url: null, description: "Complete every stage of a QAL season.", rarity: "Legendary" },
-  { id: "data-rescue", name: "Data Rescue Specialist", icon: "🛟", image_url: null, description: "Complete a data-quality rescue challenge.", rarity: "Epic" },
-];
+const BUCKET = "qal-badges";
 
-function read() {
-  try {
-    const value = localStorage.getItem(KEY);
-    if (value) return JSON.parse(value);
-    localStorage.setItem(KEY, JSON.stringify(defaults));
-  } catch (error) {
-    console.warn("Badge store unavailable:", error);
-  }
-  return [...defaults];
+export async function getBadgeCatalog() {
+  const { data, error } = await supabase.from("badges").select("id,name,description,image_url,icon,rarity,is_active,created_at").eq("is_active", true).order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
 }
-function write(items) { localStorage.setItem(KEY, JSON.stringify(items)); }
 
-export async function getBadgeCatalog() { return read(); }
-export async function getMyBadges() { return read().slice(0, 2); }
+export async function getMyBadges() {
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError) throw authError;
+  if (!user) return [];
+  const { data, error } = await supabase.from("user_badges").select("id,user_id,badge_id,awarded_at,source,badges(id,name,description,image_url,icon,rarity,is_active)").eq("user_id", user.id).order("awarded_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map((row) => ({ ...row.badges, awarded_at: row.awarded_at, user_badge_id: row.id }));
+}
+
 export async function createBadgeDraft(badge) {
-  const items = read();
-  const created = { ...badge, id: badge.id || `badge-${Date.now()}`, createdAt: new Date().toISOString() };
-  write([...items, created]);
-  return created;
+  let imageUrl = badge.image_url || null;
+  if (badge.imageFile) {
+    const ext = badge.imageFile.name.split(".").pop() || "png";
+    const path = `badges/${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, badge.imageFile, { upsert: false });
+    if (uploadError) throw uploadError;
+    const { data: publicData } = supabase.storage.from(BUCKET).getPublicUrl(path);
+    imageUrl = publicData.publicUrl;
+  }
+  const { data, error } = await supabase.from("badges").insert({ name: badge.name, description: badge.description || "", image_url: imageUrl, icon: badge.icon || "🏅", rarity: String(badge.rarity || "Common").toLowerCase(), is_active: true }).select().single();
+  if (error) throw error;
+  return data;
 }
+
 export async function deleteBadge(id) {
-  const next = read().filter((badge) => badge.id !== id);
-  write(next);
+  const { error } = await supabase.from("badges").update({ is_active: false }).eq("id", id);
+  if (error) throw error;
   return true;
 }
